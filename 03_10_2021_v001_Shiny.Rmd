@@ -1,59 +1,71 @@
 ---
 title: "03_10_2021_Cluster_Shiny"
-author: "Eli"
-date: "3 10 2021"
+author: "E."
+date: "5-10-2021"
 output: html_document
 runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(shiny)
+library(dplyr)
+library(tidyverse)
+
 ```
 
-This R Markdown document is made interactive using Shiny. Unlike the more traditional workflow of creating static reports, you can now create documents that allow your readers to change the assumptions underlying your analysis and see the results immediately. 
+Data source: https://www.bpb.de/nachschlagen/zahlen-und-fakten/soziale-situation-in-deutschland/61911/downloads
 
-To learn more, see [Interactive Documents](http://rmarkdown.rstudio.com/authoring_shiny.html).
 
-## Inputs and Outputs
+```{r mainBody, include=FALSE}
 
-You can embed Shiny inputs and outputs in your document. Outputs are automatically updated whenever inputs change.  This demonstrates how a standard R plot can be made interactive by wrapping it in the Shiny `renderPlot` function. The `selectInput` and `sliderInput` functions create the input widgets used to drive the plot.
+trend_data <- read_delim("data/cleaned_file_Asyl_DE_info.csv", delim = ";")
+
+colnames(trend_data)[which(names(trend_data) == "deportation_not_allowed_by_law")] <- "deportation_barrier"
+
+
+
+# Only Erstanträge - Antragsjahr != Auftragsjahr
+# deportation_barrier - Aufenthaltsgenehmigung, soft definitions has to be danger
+
+```
+
+## Application for asylum through the years (BRD)
 
 ```{r eruptions, echo=FALSE}
+
+maxR <- max(trend_data$Asl_request)
+
+
+
+
 inputPanel(
-  selectInput("n_breaks", label = "Number of bins:",
-              choices = c(10, 20, 35, 50), selected = 20),
-  
-  sliderInput("bw_adjust", label = "Bandwidth adjustment:",
-              min = 0.2, max = 2, value = 1, step = 0.2)
+  selectInput("n_Year", label = "Year:",
+              choices = c(2017:1999), selected = 2017),
 )
 
 renderPlot({
-  hist(faithful$eruptions, probability = TRUE, breaks = as.numeric(input$n_breaks),
-       xlab = "Duration (minutes)", main = "Geyser eruption duration")
+  trend_data %>% filter(Year == as.numeric(input$n_Year)) %>% 
+    select(Asl_request, denied_Asyl) %>% pivot_longer(cols = c(Asl_request, denied_Asyl), names_to="variable", values_to="value") %>% 
+    
+  ggplot(aes(x = variable, y=value, fill = variable)) +
+  geom_col() + theme_minimal() + ylab("Number of asyl requests") + 
+    geom_hline(yintercept= maxR, colour = "lightblue") + xlab("Asyl decisions") +
+   scale_color_manual(values = c("blue","orange"), aesthetics = c("colour", "fill"))
+
+
   
-  dens <- density(faithful$eruptions, adjust = input$bw_adjust)
-  lines(dens, col = "blue")
+
 })
+
+
 ```
+```{r chill_Shiny_Cluster, echo=FALSE}
 
-## Embedded Application
 
-It's also possible to embed an entire Shiny application within an R Markdown document using the `shinyAppDir` function. This example embeds a Shiny application located in another directory:
 
-```{r tabsets, echo=FALSE}
-shinyAppDir(
-  system.file("examples/06_tabsets", package = "shiny"),
-  options = list(
-    width = "100%", height = 550
-  )
-)
+
 ```
-
-Note the use of the `height` parameter to determine how much vertical space the embedded application should occupy.
-
-You can also use the `shinyApp` function to define an application inline rather then in an external directory.
-
-In all of R code chunks above the `echo = FALSE` attribute is used. This is to prevent the R code within the chunk from rendering in the document alongside the Shiny components.
-
 
 
