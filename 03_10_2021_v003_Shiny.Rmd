@@ -1,0 +1,127 @@
+---
+title: "Asyl data germany"
+author: "EliDerDelight"
+date: "5-10-2021"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(shiny)
+library(shinyWidgets)
+library(shinydashboard)
+library(shinythemes)
+library(dplyr)
+library(tidyverse)
+library(scales)
+library(jsonlite)
+library(htm2txt)
+library(ggplot2)
+#Git R Set up: 
+
+#Git: use_github(protocol = 'https', auth_token = Sys.getenv("GITHUB_PAT")) 
+#gitcreds_set() 
+#https://www.youtube.com/watch?v=kL6L2MNqPHg&ab_channel=IDGTECHtalk
+
+```
+
+Data source: https://www.bpb.de/nachschlagen/zahlen-und-fakten/soziale-situation-in-deutschland/61911/downloads
+
+```{r chill_Shiny_Cluster, echo=FALSE}
+
+#In the query string in the URL, add the action parameter. It tells the API which action to perform. The most popular action is query (the URL would contain action=query), which allows fetching data from a wiki. Following the action parameter, add another parameter to indicate which one of the three query module types you want to perform:
+
+#    prop - get properties of pages  
+#    list - get list of pages matching a certain criterion
+#    meta - get meta information about the wiki and user
+
+#Finally, include the format parameter, which tells the API in which format to get the results. The recommended format is JSON. The API has supported other output formats in the #past, but they are not generally recommended. '
+
+# https://www.mediawiki.org/wiki/API:Tutorial
+
+MySearch <- function(srsearch){
+  FullSearchString <- paste("http://de.wikipedia.org/w/api.php?action=query&list=search&srsearch=",srsearch,"&format=json",sep="")
+  Response <- fromJSON(FullSearchString)
+  
+  y <- Response$query$search["snippet"]
+  #y<- y[-c(1),1] 
+
+  return(as.character(y))
+}
+
+#Response <- MySearch(input$n_Year) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+```
+
+
+
+```{r mainBody, include=FALSE}
+
+trend_data <- read_delim("data/cleaned_file_Asyl_DE_info.csv", delim = ";")
+
+colnames(trend_data)[which(names(trend_data) == "deportation_not_allowed_by_law")] <- "deportation_barrier"
+
+
+# Only Erstanträge - Antragsjahr != Auftragsjahr
+# deportation_barrier - Aufenthaltsgenehmigung
+
+```
+
+## Application for asylum through the years (BRD)
+
+```{r eruptions, echo=FALSE}
+
+
+
+#Shiny App Setup 
+# Main 
+
+ui <- fluidPage(
+  titlePanel("Overview"),
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput(inputId = "year_ch",
+                  label = "Choose a year",
+                  value=2017, min = 1999, max = 2017, step  = 1, sep = "")
+    ),
+    mainPanel(
+      plotOutput(outputId = "plt"),
+      shiny::textOutput(outputId = "txt")
+    )
+  )
+)
+
+server <- function(input, output){
+  
+  #Output slider bar chart 1
+  output$plt <- renderPlot({
+
+   trend_data %>% filter(Year == as.numeric(input$year_ch)) %>% 
+   select(Asl_request, denied_Asyl) %>% pivot_longer(cols = c(Asl_request, denied_Asyl), names_to="variable", values_to="value") %>% 
+   
+    ggplot(aes(x = variable, y=value, fill = variable)) +
+    geom_col() + theme_minimal() + ylab("Number of asyl requests") + 
+    scale_color_manual(guide="none", values = c("blue","orange"), aesthetics = c("colour", "fill")) +
+    scale_y_continuous(labels = unit_format(unit = "M", scale = 1e-6), limits = c(0,250000)) 
+  
+  })
+  
+  # Should be string
+
+  
+  
+   output$txt <- renderUI({
+     HTML(MySearch(input$year_ch), sep = '<br/>')
+     })
+}
+
+
+# Run the application
+shinyApp(ui = ui, server = server)
+
+```
+
+
+
